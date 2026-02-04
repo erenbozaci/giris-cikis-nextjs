@@ -9,6 +9,7 @@ import { PaginationState, SortingState } from "@tanstack/react-table"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { toast } from "sonner"
 
 const PAGE_SIZE = 10
 
@@ -37,9 +38,14 @@ export default function AttendancePage() {
         rows.forEach((entry: { giris: string; cikis: string; name: string }) => {
             const [girisHour, girisMinute] = entry.giris.split(':').map(Number)
             const [cikisHour, cikisMinute] = entry.cikis.split(':').map(Number)
+            let cikisHourAdjusted = cikisHour;
+            if (cikisHour < girisHour) {
+               cikisHourAdjusted += 24;
+            }
+            
             
             const girisMinutes = girisHour * 60 + girisMinute
-            const cikisMinutes = cikisHour * 60 + cikisMinute
+            const cikisMinutes = cikisHourAdjusted * 60 + cikisMinute
             
             const diffInHours = (cikisMinutes - girisMinutes) / 60
             
@@ -60,11 +66,13 @@ export default function AttendancePage() {
         const sortBy = sort?.id ? `&sortBy=${encodeURIComponent(sort.id)}` : ""
         const sortDir = sort ? `&sortDir=${sort.desc ? "desc" : "asc"}` : ""
 
+        toast.loading("Veriler yükleniyor...", { id: "fetching-data" })
+
         const res = await fetch(
             `/api/attendance?page=${pagination.pageIndex}&pageSize=${pagination.pageSize}${qParam}${sortBy}${sortDir}`
         )
         const { data: rows, count } = await res.json()
-        
+        toast.success("Veriler yüklendi", { id: "fetching-data" })
         setData(rows.map((row: Attendance & { date: string }) => ({
             ...row,
             date: new Date(row.date)
@@ -124,6 +132,7 @@ export default function AttendancePage() {
             method: "DELETE",
         })
         fetchPageData()
+        toast.success("Kayıt silindi")
     }
 
     return (

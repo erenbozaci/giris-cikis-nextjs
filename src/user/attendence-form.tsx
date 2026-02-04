@@ -16,6 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { CalendarIcon } from "lucide-react"
 import { format } from "date-fns"
 import { tr } from "date-fns/locale"
+import { toast } from "sonner"
 
 type Props = {
   open: boolean
@@ -57,6 +58,29 @@ export function AttendanceForm({
   }
 
   const submit = () => {
+    if (!form.name?.trim()) {
+      toast.info("Lütfen isim girin")
+      return
+    }
+    if (!form.giris || !form.cikis) {
+      toast.info("Lütfen giriş ve çıkış saatlerini girin")
+      return
+    }
+
+    const toMinutes = (value: string) => {
+      const [h, m] = value.split(":").map(Number)
+      if (Number.isNaN(h) || Number.isNaN(m)) return null
+      return h * 60 + m
+    }
+
+    const girisMin = toMinutes(form.giris)
+    const cikisMin = toMinutes(form.cikis)
+    if (girisMin === null || cikisMin === null) {
+      toast.error("Saat formatı geçersiz")
+      return
+    }
+
+
     onSubmit(form)
     onClose()
   }

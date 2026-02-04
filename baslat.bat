@@ -1,9 +1,10 @@
+
 @echo off
-title YouTube Ses Indirici
+title Giriş Çıkış - Uygulama Baslat
 color 0A
 echo.
 echo  ====================================================
-echo   YouTube Ses Indirici - Uygulama Baslat
+echo   Giriş Çıkış - Uygulama Baslat
 echo  ====================================================
 echo.
 
@@ -50,37 +51,7 @@ if not exist "node_modules" (
 )
 echo [✓] Bagimlilikar hazir
 
-REM Ensure .env exists for Prisma
-echo [3/6] .env kontrol ediliyor...
-if not exist ".env" (
-    echo [!] .env bulunamadi, olusturuluyor...
-    > .env echo DATABASE_URL="file:./data/dev.db"
-)
-echo [✓] .env hazir
-
-echo [4/6] Prisma Client uretiliyor...
-npx prisma generate
-if %errorlevel% neq 0 (
-    echo.
-    echo [HATA] prisma generate basarisiz!
-    pause
-    exit /b 1
-)
-echo [✓] Prisma generate tamam
-
-echo [5/6] Veritabani migration uygulanıyor...
-npx prisma migrate deploy
-if %errorlevel% neq 0 (
-    echo.
-    echo [HATA] prisma migrate deploy basarisiz!
-    echo Gerekirse (dev icin) su komutu deneyin:
-    echo   npx prisma migrate reset
-    pause
-    exit /b 1
-)
-echo [✓] Migration tamam
-
-echo [6/6] Uygulama baslatiliyor...
+echo [3/4] Uygulama baslatiliyor...
 echo.
 echo ┌─────────────────────────────────────────────────┐
 echo │  Uygulama http://localhost:3000 adresinde       │
