@@ -114,6 +114,37 @@ export default function AttendancePage() {
     [refresh]
   )
 
+  const run = async (label: string, fn: () => Promise<void>) => {
+    try {
+      await fn()
+    } catch (err) {
+      toast.error(`${label}: ${errorMessage(err)}`)
+    }
+  }
+
+  const exportDb = () =>
+    run("Dışa aktarılamadı", async () => {
+      const r = await window.api.exportDb()
+      if (!r.canceled) toast.success(`Dışa aktarıldı: ${r.path}`)
+    })
+
+  const importDb = () =>
+    run("İçe aktarılamadı", async () => {
+      const r = await window.api.importDb()
+      if (r.canceled) return
+      toast.success(`${r.count} kayıt içe aktarıldı`)
+      setPagination((prev) => ({ ...prev, pageIndex: 0 }))
+      await refresh()
+    })
+
+  const checkUpdate = () =>
+    run("Güncelleme kontrol edilemedi", async () => {
+      const r = await window.api.checkUpdate()
+      if (r.status === "dev") toast.info("Geliştirme modunda güncelleme kontrolü yapılmaz")
+      else if (r.status === "available") toast.success(`Yeni sürüm ${r.version} bulundu, indiriliyor...`)
+      else toast.success(`Güncelsiniz (v${r.current})`)
+    })
+
   const totals = Object.entries(twoWeeksHours).sort(([a], [b]) => a.localeCompare(b, "tr"))
 
   return (
@@ -134,6 +165,15 @@ export default function AttendancePage() {
           value={query}
           onChange={(e) => setQueryAndReset(e.target.value)}
         />
+        <Button variant="outline" className="cursor-pointer" onClick={exportDb}>
+          Dışa Aktar
+        </Button>
+        <Button variant="outline" className="cursor-pointer" onClick={importDb}>
+          İçe Aktar
+        </Button>
+        <Button variant="outline" className="cursor-pointer" onClick={checkUpdate}>
+          Güncellemeleri Denetle
+        </Button>
       </div>
 
       <DataTable

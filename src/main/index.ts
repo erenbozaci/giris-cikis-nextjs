@@ -3,9 +3,11 @@ import { appendFileSync } from "node:fs"
 import { join } from "node:path"
 import { autoUpdater } from "electron-updater"
 import {
+  backupTo,
   closeDatabase,
   createAttendance,
   deleteAttendance,
+  importFrom,
   listAttendance,
   listTwoWeeks,
   openDatabase,
@@ -66,8 +68,10 @@ function createWindow() {
 }
 
 // GitHub Releases'teki en son sürümle package.json sürümünü karşılaştırır; yeni sürüm varsa indirir
-function checkForUpdates() {
-  if (!app.isPackaged) return
+let updaterReady = false
+function setupUpdater() {
+  if (!app.isPackaged || updaterReady) return
+  updaterReady = true
   autoUpdater.autoDownload = true
   autoUpdater.autoInstallOnAppQuit = true
   autoUpdater.on("update-downloaded", (info) => {
@@ -89,7 +93,11 @@ function checkForUpdates() {
 `)
     } catch {}
   })
-  void autoUpdater.checkForUpdates()
+}
+
+function checkForUpdates() {
+  setupUpdater()
+  if (app.isPackaged) void autoUpdater.checkForUpdates().catch(() => {})
 }
 
 function registerIpc() {
@@ -99,6 +107,46 @@ function registerIpc() {
   ipcMain.handle("attendance:update", (_e, id: number, input) => updateAttendance(id, input))
   ipcMain.handle("attendance:setIzin", (_e, id: number, izin: number) => setIzin(id, izin))
   ipcMain.handle("attendance:remove", (_e, id: number) => deleteAttendance(id))
+
+  ipcMain.handle("db:export", async () => {
+    const stamp = new Date().toISOString().slice(0, 10)
+    const { canceled, filePath } = await dialog.showSaveDialog({
+      title: "Veritabanını dışa aktar",
+      defaultPath: `giris-cikis-${stamp}.db`,
+      filters: [{ name: "Veritabanı", extensions: ["db"] }],
+    })
+    if (canceled || !filePath) return { canceled: true }
+    await backupTo(filePath)
+    return { canceled: false, path: filePath }
+  })
+
+  ipcMain.handle("db:import", async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog({
+      title: "Veritabanını içe aktar",
+      properties: ["openFile"],
+      filters: [{ name: "Veritabanı", extensions: ["db"] }],
+    })
+    if (canceled || !filePaths[0]) return { canceled: true }
+    const { response } = await dialog.showMessageBox({
+      type: "warning",
+      buttons: ["İçe aktar", "Vazgeç"],
+      defaultId: 1,
+      cancelId: 1,
+      title: "Mevcut kayıtlar silinecek",
+      message: "İçe aktarma mevcut tüm kayıtların yerini alır. Devam edilsin mi?",
+    })
+    if (response !== 0) return { canceled: true }
+    return { canceled: false, count: importFrom(filePaths[0]) }
+  })
+
+  ipcMain.handle("app:checkUpdate", async () => {
+    const current = app.getVersion()
+    if (!app.isPackaged) return { status: "dev", version: current, current }
+    setupUpdater()
+    const res = await autoUpdater.checkForUpdates()
+    const version = res?.updateInfo.version ?? current
+    return { status: res?.isUpdateAvailable ? "available" : "latest", version, current }
+  })
 }
 
 // Saat alanları sistem dilinden bağımsız 24 saat formatında görünsün

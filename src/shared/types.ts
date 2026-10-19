@@ -33,4 +33,7 @@ export type AttendanceApi = {
   update: (id: number, input: AttendanceInput) => Promise<Attendance>
   setIzin: (id: number, izin: number) => Promise<Attendance>
   remove: (id: number) => Promise<void>
+  exportDb: () => Promise<{ canceled: boolean; path?: string }>
+  importDb: () => Promise<{ canceled: boolean; count?: number }>
+  checkUpdate: () => Promise<{ status: "latest" | "available" | "dev"; version: string; current: string }>
 }

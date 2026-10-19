@@ -34,6 +34,30 @@ export function openDatabase(): void {
   `)
 }
 
+export function backupTo(path: string): Promise<unknown> {
+  return db.backup(path)
+}
+
+// Seçilen .db dosyasındaki kayıtlarla mevcut tüm kayıtların yerini alır
+export function importFrom(path: string): number {
+  const src = new Database(path, { readonly: true, fileMustExist: true })
+  try {
+    const rows = src
+      .prepare(`SELECT date, name, giris, cikis, izin FROM "Attendance"`)
+      .all() as Omit<Attendance, "id">[]
+    const insert = db.prepare(
+      `INSERT INTO Attendance (date, name, giris, cikis, izin) VALUES (@date, @name, @giris, @cikis, @izin)`
+    )
+    db.transaction(() => {
+      db.exec(`DELETE FROM Attendance`)
+      for (const r of rows) insert.run(r)
+    })()
+    return rows.length
+  } finally {
+    src.close()
+  }
+}
+
 export function closeDatabase() {
   db?.close()
 }
