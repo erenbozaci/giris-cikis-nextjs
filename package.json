@@ -13,7 +13,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "dist": "npm run build && electron-builder",
     "dist:win": "npm run build && electron-builder --win",
-    "dist:linux": "npm run build && electron-builder --linux"
+    "dist:linux": "npm run build && electron-builder --linux",
+    "release": "npm run build && electron-builder --win --publish always"
   },
   "build": {
     "appId": "com.eren.giriscikis",
@@ -74,10 +75,18 @@
       "files": [
         "!node_modules/better-sqlite3/prebuilds/{darwin,win32,linuxmusl}-*.node"
       ]
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "erenbozaci",
+        "repo": "giris-cikis-nextjs"
+      }
+    ]
   },
   "dependencies": {
-    "better-sqlite3": "^13.0.3"
+    "better-sqlite3": "^13.0.3",
+    "electron-updater": "^6.8.9"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",

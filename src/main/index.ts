@@ -1,5 +1,7 @@
-import { app, BrowserWindow, ipcMain, shell } from "electron"
+import { app, BrowserWindow, dialog, ipcMain, shell } from "electron"
+import { appendFileSync } from "node:fs"
 import { join } from "node:path"
+import { autoUpdater } from "electron-updater"
 import {
   closeDatabase,
   createAttendance,
@@ -10,6 +12,22 @@ import {
   setIzin,
   updateAttendance,
 } from "./db"
+
+// Başlangıçta sessizce kapanmak yerine hatayı göster ve userData/hata.log'a yaz
+function reportFatal(title: string, err: unknown) {
+  const msg = err instanceof Error ? `${err.message}
+${err.stack ?? ""}` : String(err)
+  try {
+    appendFileSync(join(app.getPath("userData"), "hata.log"), `[${new Date().toISOString()}] ${title}
+${msg}
+
+`)
+  } catch {}
+  dialog.showErrorBox(title, msg)
+  app.quit()
+}
+
+process.on("uncaughtException", (err) => reportFatal("Beklenmeyen hata", err))
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -28,6 +46,11 @@ function createWindow() {
   })
 
   win.once("ready-to-show", () => win.show())
+  // Sayfa yüklenemezse pencere hiç görünmeyebilir; yine de göster
+  win.webContents.on("did-fail-load", (_e, code, desc) => {
+    win.show()
+    dialog.showErrorBox("Sayfa yüklenemedi", `${desc} (${code})`)
+  })
 
   // Dış linkler uygulama içinde değil tarayıcıda açılsın
   win.webContents.setWindowOpenHandler(({ url }) => {
@@ -40,6 +63,33 @@ function createWindow() {
   } else {
     void win.loadFile(join(__dirname, "../renderer/index.html"))
   }
+}
+
+// GitHub Releases'teki en son sürümle package.json sürümünü karşılaştırır; yeni sürüm varsa indirir
+function checkForUpdates() {
+  if (!app.isPackaged) return
+  autoUpdater.autoDownload = true
+  autoUpdater.autoInstallOnAppQuit = true
+  autoUpdater.on("update-downloaded", (info) => {
+    void dialog
+      .showMessageBox({
+        type: "info",
+        buttons: ["Şimdi yeniden başlat", "Sonra"],
+        defaultId: 0,
+        title: "Güncelleme hazır",
+        message: `Yeni sürüm ${info.version} indirildi (mevcut: ${app.getVersion()}).`,
+      })
+      .then(({ response }) => {
+        if (response === 0) autoUpdater.quitAndInstall()
+      })
+  })
+  autoUpdater.on("error", (err) => {
+    try {
+      appendFileSync(join(app.getPath("userData"), "hata.log"), `[${new Date().toISOString()}] güncelleme: ${err.message}
+`)
+    } catch {}
+  })
+  void autoUpdater.checkForUpdates()
 }
 
 function registerIpc() {
@@ -69,9 +119,15 @@ if (!app.requestSingleInstanceLock()) {
   app.whenReady().then(() => {
     // Windows görev çubuğu gruplaması ve bildirimler için kurulumdaki appId ile aynı olmalı
     if (process.platform === "win32") app.setAppUserModelId("com.eren.giriscikis")
-    openDatabase()
-    registerIpc()
-    createWindow()
+    try {
+      openDatabase()
+      registerIpc()
+      createWindow()
+      checkForUpdates()
+    } catch (err) {
+      reportFatal("Uygulama başlatılamadı", err)
+      return
+    }
 
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow()
